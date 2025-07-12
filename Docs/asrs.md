@@ -1,10 +1,3 @@
-I am building a TradingView Pine script that marks out the 4th 5-minute candle after the DAX open, and I need to ensure that the code is consistent with the ASRS Strategy Checklist. The code should include logic for breakout trades based on the high and low of the 4th candle, with appropriate stop loss and entry conditions.
-
-Please create a Pine script that implements the ASRS strategy as described in the checklist, ensuring it adheres to the rules and guidelines provided. The script should be clear, concise, and ready for use in TradingView.
-
-It should draw a green line for the buy stop level, a red line for the sell stop level, and a blue line for the stop loss level. The script should also include comments explaining each part of the code.
-The line should not extend beyond 1 hour after the 4th candle closes
-
 # ASRS Strategy Checklist
 
 ---
@@ -66,3 +59,11 @@ The line should not extend beyond 1 hour after the 4th candle closes
 - [ ] Avoid trading setups **after 2 hours** of the DAX open—strategy is optimized for early market activity.
 
 ---
+
+### 🧠 **MINDSET & DISCIPLINE REMINDERS**
+
+- [ ] Accept **losses quickly** and unemotionally.
+- [ ] Trade small enough not to trigger fear.
+- [ ] Do **not deviate** from the plan based on feelings.
+- [ ] No after-the-fact regret or rule-bending.
+- [ ] Recognize **psychological biases** (e.g., fear of losing profits, hope of recovery).
