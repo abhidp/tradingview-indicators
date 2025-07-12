@@ -1,0 +1,47 @@
+# Off-Center Watermark
+
+**Finally, a watermark that stays out of your way!**
+
+Tired of TradingView's default watermark blocking your price action and technical analysis? This customizable watermark indicator gives you complete control over positioning and content display.
+
+## 🎯 Key Features
+
+**✅ Flexible Positioning** - Place anywhere: corners, sides, or edges
+**✅ Multi-Slot Display** - Up to 3 customizable information slots
+**✅ Individual Font Control** - Different sizes for each slot
+**✅ Platform Compatibility** - TradingView OR MetaTrader timeframe formats
+**✅ Clean & Professional** - Customizable colors and transparency
+
+## 🔧 What You Can Display
+
+- **Timeframe** - Current chart period
+- **Ticker** - Symbol name (smart formatting for crypto/forex)
+- **Exchange** - Broker/platform name
+- **Custom Text** - Your own message
+- **Empty** - Hide unused slots
+
+## 🎨 Customization Options
+
+- **Position**: 9 placement options (top/middle/bottom + left/center/right)
+- **Colors**: Full color picker with transparency control
+- **Font Sizes**: 5 sizes available per slot (tiny to huge)
+- **Timeframe Style**: Choose TradingView (1m, 4H) or MetaTrader (M1, H4) format
+
+## 🚀 Perfect For
+
+- Traders who need clean chart visibility
+- Multi-timeframe analysis
+- Professional chart screenshots
+- Platform migrants (MT4/MT5 to TradingView)
+- Anyone wanting organized chart information
+
+## 💡 Pro Tips
+
+- Place in corners to avoid price action interference
+- Combine Exchange + Ticker + Timeframe for complete context
+- Use transparency to make it subtle but visible
+
+**Stop letting watermarks interfere with your trading analysis. Take control of your chart display today!**
+
+---
+*Compatible with all TradingView chart types and timeframes. Easy setup with intuitive controls.*
