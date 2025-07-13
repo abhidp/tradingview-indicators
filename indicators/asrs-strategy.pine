@@ -1,0 +1,103 @@
+//@version=6
+// TraderTom's ASRS Indicator
+// This script implements the Advanced School Run Strategy (ASRS) for the DAX invented by Tom Hougaard (@TraderTom).
+// It identifies the 4th 5-minute candle of the DAX session, marks its high and low,
+// and provides visual cues for breakout trades according to the ASRS checklist.
+
+indicator("TraderTom's ASRS Indicator", "TraderTom ASRS", overlay=true)
+
+// --- Inputs ---
+var G_STRATEGY = "ASRS Settings"
+dax_session = input.session("0900-1100", "DAX Trading Window (CET)", group = G_STRATEGY, tooltip = "The window to identify the 4th candle and display trade levels. It should start at the DAX open (e.g., 9:00) and end 2 hours later (e.g., 11:00).")
+buffer_points = input.float(2.0, "Buffer (Points)", group = G_STRATEGY, tooltip = "Points to add/subtract from the 4th candle's high/low to create the breakout entry levels.")
+buy_line_color = input.color(color.new(color.green, 0), "Buy Line Color", group = G_STRATEGY)
+sell_line_color = input.color(color.new(color.red, 0), "Sell Line Color", group = G_STRATEGY)
+show_trade_labels = input.bool(true, "Show Trade Labels", group = G_STRATEGY)
+
+
+var G_LABELS = "Candle Numbering"
+show_labels = input.bool(true, "Show Candle Numbers", group = G_LABELS)
+label_textcolor = input.color(color.new(color.white, 0), "Text Color", group = G_LABELS)
+label_size = input.string(size.normal, "Size", options=[size.tiny, size.small, size.normal, size.large, size.huge], group = G_LABELS)
+label_offset = input.float(1000.0, "Vertical Offset (Points)", group = G_LABELS, tooltip="Distance to draw the number below the candle's low.")
+
+// --- Constants ---
+CANDLE_INDEX = 3 // The 4th candle is at index 3 (0-based).
+
+// --- State Variables ---
+var float fourth_candle_high = na
+var float fourth_candle_low = na
+var int session_start_bar = na
+var line buy_line = na
+var line sell_line = na
+var label[] candle_labels = array.new_label()
+var label buy_label = na
+var label sell_label = na
+var label buy_sl_label = na
+var label sell_sl_label = na
+
+// --- Time Calculation ---
+is_in_session = not na(time(timeframe.period, dax_session, "Europe/Berlin"))
+
+// --- Session Logic ---
+is_new_session = is_in_session and not is_in_session[1]
+
+if is_new_session
+    // Reset state at the start of each new DAX session.
+    session_start_bar := bar_index
+    fourth_candle_high := na
+    fourth_candle_low := na
+    
+    // Delete old lines and labels from the previous day.
+    line.delete(buy_line)
+    line.delete(sell_line)
+    label.delete(buy_label)
+    label.delete(sell_label)
+    label.delete(buy_sl_label)
+    label.delete(sell_sl_label)
+    buy_line := na
+    sell_line := na
+    buy_label := na
+    sell_label := na
+    buy_sl_label := na
+    sell_sl_label := na
+    for l in candle_labels
+        label.delete(l)
+    array.clear(candle_labels)
+
+// --- Candle Numbering Logic ---
+if show_labels and is_in_session
+    candle_num_in_session = bar_index - session_start_bar
+    if candle_num_in_session < 5
+        label_y_pos = low - label_offset * syminfo.mintick
+        new_label = label.new(bar_index, label_y_pos, str.tostring(candle_num_in_session + 1), 
+                              xloc=xloc.bar_index, yloc=yloc.price, 
+                              color=color.new(color.black, 100), textcolor=label_textcolor, style=label.style_none, 
+                              size=label_size, textalign=text.align_center)
+        array.push(candle_labels, new_label)
+
+// --- 4th Candle Logic ---
+is_fourth_candle = is_in_session and (bar_index - session_start_bar == CANDLE_INDEX)
+
+if is_fourth_candle
+    fourth_candle_high := high
+    fourth_candle_low := low
+
+// --- Drawing and Trade Simulation Logic ---
+is_trade_window = bar_index > session_start_bar + CANDLE_INDEX and is_in_session
+
+if is_trade_window and not na(fourth_candle_high)
+    buy_level = fourth_candle_high + buffer_points
+    sell_level = fourth_candle_low - buffer_points
+    session_end_time = timestamp("Europe/Berlin", year(time_tradingday), month(time_tradingday), dayofmonth(time_tradingday), 11, 0)
+
+    if na(buy_line)
+        buy_line := line.new(time, buy_level, session_end_time, buy_level, xloc=xloc.bar_time, color=buy_line_color, width=2)
+        if show_trade_labels
+            buy_label := label.new(session_end_time, buy_level, "ASRS Buy", xloc=xloc.bar_time, yloc=yloc.price, color=buy_line_color, textcolor=color.white, style=label.style_label_left)
+    if na(sell_line)
+        sell_line := line.new(time, sell_level, session_end_time, sell_level, xloc=xloc.bar_time, color=sell_line_color, width=2)
+        if show_trade_labels
+            sell_label := label.new(session_end_time, sell_level, "ASRS Sell", xloc=xloc.bar_time, yloc=yloc.price, color=sell_line_color, textcolor=color.white, style=label.style_label_left)
+
+ 
