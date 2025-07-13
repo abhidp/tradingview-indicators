@@ -1,5 +1,5 @@
 //@version=6
-// Gemini-Created TraderTom's ASRS Indicator
+// TraderTom's ASRS Indicator
 // This script implements the Advanced School Run Strategy (ASRS) for the DAX invented by Tom Hougaard (@TraderTom).
 // It identifies the 4th 5-minute candle of the DAX session, marks its high and low,
 // and provides visual cues for breakout trades according to the ASRS checklist.
