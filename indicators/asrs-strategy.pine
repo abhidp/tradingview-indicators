@@ -12,7 +12,6 @@ dax_session = input.session("0900-1100", "DAX Trading Window (CET)", group = G_S
 buffer_points = input.float(2.0, "Buffer (Points)", group = G_STRATEGY, tooltip = "Points to add/subtract from the 4th candle's high/low to create the breakout entry levels.")
 buy_line_color = input.color(color.new(color.green, 0), "Buy Line Color", group = G_STRATEGY)
 sell_line_color = input.color(color.new(color.red, 0), "Sell Line Color", group = G_STRATEGY)
-sl_line_color = input.color(color.new(color.blue, 0), "Stop Loss Line Color", group = G_STRATEGY)
 show_trade_labels = input.bool(true, "Show Trade Labels", group = G_STRATEGY)
 
 
@@ -31,12 +30,11 @@ var float fourth_candle_low = na
 var int session_start_bar = na
 var line buy_line = na
 var line sell_line = na
-var line sl_line = na
-var string trade_direction = "none"
 var label[] candle_labels = array.new_label()
 var label buy_label = na
 var label sell_label = na
-var label sl_label = na
+var label buy_sl_label = na
+var label sell_sl_label = na
 
 // --- Time Calculation ---
 is_in_session = not na(time(timeframe.period, dax_session, "Europe/Berlin"))
@@ -49,21 +47,20 @@ if is_new_session
     session_start_bar := bar_index
     fourth_candle_high := na
     fourth_candle_low := na
-    trade_direction := "none"
     
     // Delete old lines and labels from the previous day.
     line.delete(buy_line)
     line.delete(sell_line)
-    line.delete(sl_line)
     label.delete(buy_label)
     label.delete(sell_label)
-    label.delete(sl_label)
+    label.delete(buy_sl_label)
+    label.delete(sell_sl_label)
     buy_line := na
     sell_line := na
-    sl_line := na
     buy_label := na
     sell_label := na
-    sl_label := na
+    buy_sl_label := na
+    sell_sl_label := na
     for l in candle_labels
         label.delete(l)
     array.clear(candle_labels)
@@ -97,33 +94,10 @@ if is_trade_window and not na(fourth_candle_high)
     if na(buy_line)
         buy_line := line.new(time, buy_level, session_end_time, buy_level, xloc=xloc.bar_time, color=buy_line_color, width=2)
         if show_trade_labels
-            buy_label := label.new(session_end_time, buy_level, "Buy", xloc=xloc.bar_time, yloc=yloc.price, color=buy_line_color, textcolor=color.white, style=label.style_label_left)
+            buy_label := label.new(session_end_time, buy_level, "ASRS Buy", xloc=xloc.bar_time, yloc=yloc.price, color=buy_line_color, textcolor=color.white, style=label.style_label_left)
     if na(sell_line)
         sell_line := line.new(time, sell_level, session_end_time, sell_level, xloc=xloc.bar_time, color=sell_line_color, width=2)
         if show_trade_labels
-            sell_label := label.new(session_end_time, sell_level, "Sell", xloc=xloc.bar_time, yloc=yloc.price, color=sell_line_color, textcolor=color.white, style=label.style_label_left)
+            sell_label := label.new(session_end_time, sell_level, "ASRS Sell", xloc=xloc.bar_time, yloc=yloc.price, color=sell_line_color, textcolor=color.white, style=label.style_label_left)
 
-    if trade_direction == "none"
-        long_triggered = high > buy_level
-        short_triggered = low < sell_level
-
-        if long_triggered
-            trade_direction := "long"
-            sl_line := line.new(time, sell_level, session_end_time, sell_level, xloc=xloc.bar_time, color=sl_line_color, width=2, style=line.style_dashed)
-            line.delete(sell_line)
-            label.delete(sell_label)
-            sell_line := na
-            sell_label := na
-            if show_trade_labels
-                sl_label := label.new(session_end_time, sell_level, "Stop Loss", xloc=xloc.bar_time, yloc=yloc.price, color=sl_line_color, textcolor=color.white, style=label.style_label_left)
-
-        else if short_triggered
-            trade_direction := "short"
-            sl_line := line.new(time, buy_level, session_end_time, buy_level, xloc=xloc.bar_time, color=sl_line_color, width=2, style=line.style_dashed)
-            line.delete(buy_line)
-            label.delete(buy_label)
-            buy_line := na
-            buy_label := na
-            if show_trade_labels
-                sl_label := label.new(session_end_time, buy_level, "Stop Loss", xloc=xloc.bar_time, yloc=yloc.price, color=sl_line_color, textcolor=color.white, style=label.style_label_left)
-
+ 
