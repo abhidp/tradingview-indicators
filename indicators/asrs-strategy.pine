@@ -34,11 +34,8 @@ var line sell_line = na
 var label[] candle_labels = array.new_label()
 var label buy_label = na
 var label sell_label = na
-var label buy_sl_label = na
-var label sell_sl_label = na
 var label buy_price_label = na
 var label sell_price_label = na
-
 // --- Time Calculation ---
 is_in_session = not na(time(timeframe.period, dax_session, "Europe/Berlin"))
 

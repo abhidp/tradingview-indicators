@@ -3,11 +3,10 @@ indicator(title="Top Right Watermark", shorttitle = "TR Watermark", overlay = tr
 
 // Inputs
 //{
-wm_size     = input.string(size.huge, 
+wm_size     = input.string("huge", 
                        title = "watermark size",
-                       options = [size.tiny, size.small, size.normal, size.large, size.huge],
-                       inline = "WM")
-tf_style    = input.string("TradingView", 
+                       options = ["tiny", "small", "normal", "large", "huge"],
+                       inline = "WM")tf_style    = input.string("TradingView", 
                        title = "Timeframe Style",
                        options = ["TradingView", "MetaTrader"]),
 wm_col      = input.color (color.new(color.gray, 70), 
