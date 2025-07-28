@@ -13,6 +13,7 @@ buffer_points = input.float(2.0, "Buffer (Points)", group = G_STRATEGY, tooltip 
 buy_line_color = input.color(color.new(color.green, 0), "Buy Line Color", group = G_STRATEGY)
 sell_line_color = input.color(color.new(color.red, 0), "Sell Line Color", group = G_STRATEGY)
 show_trade_labels = input.bool(true, "Show Trade Labels", group = G_STRATEGY)
+show_price_labels = input.bool(true, "Show Price Labels on Lines", group = G_STRATEGY)
 
 
 var G_LABELS = "Candle Numbering"
@@ -35,6 +36,8 @@ var label buy_label = na
 var label sell_label = na
 var label buy_sl_label = na
 var label sell_sl_label = na
+var label buy_price_label = na
+var label sell_price_label = na
 
 // --- Time Calculation ---
 is_in_session = not na(time(timeframe.period, dax_session, "Europe/Berlin"))
@@ -55,12 +58,16 @@ if is_new_session
     label.delete(sell_label)
     label.delete(buy_sl_label)
     label.delete(sell_sl_label)
+    label.delete(buy_price_label)
+    label.delete(sell_price_label)
     buy_line := na
     sell_line := na
     buy_label := na
     sell_label := na
     buy_sl_label := na
     sell_sl_label := na
+    buy_price_label := na
+    sell_price_label := na
     for l in candle_labels
         label.delete(l)
     array.clear(candle_labels)
@@ -92,12 +99,15 @@ if is_trade_window and not na(fourth_candle_high)
     session_end_time = timestamp("Europe/Berlin", year(time_tradingday), month(time_tradingday), dayofmonth(time_tradingday), 11, 0)
 
     if na(buy_line)
-        buy_line := line.new(time, buy_level, session_end_time, buy_level, xloc=xloc.bar_time, color=buy_line_color, width=2)
+        buy_line := line.new(time, buy_level, session_end_time, buy_level, xloc=xloc.bar_time, color=buy_line_color, width=1)
         if show_trade_labels
             buy_label := label.new(session_end_time, buy_level, "ASRS Buy", xloc=xloc.bar_time, yloc=yloc.price, color=buy_line_color, textcolor=color.white, style=label.style_label_left)
+        if show_price_labels
+            buy_price_label := label.new(session_end_time, buy_level, str.tostring(buy_level, format.mintick), xloc=xloc.bar_time, yloc=yloc.price, color=color.new(buy_line_color, 0), textcolor=color.white, style=label.style_label_right)
     if na(sell_line)
-        sell_line := line.new(time, sell_level, session_end_time, sell_level, xloc=xloc.bar_time, color=sell_line_color, width=2)
+        sell_line := line.new(time, sell_level, session_end_time, sell_level, xloc=xloc.bar_time, color=sell_line_color, width=1)
         if show_trade_labels
             sell_label := label.new(session_end_time, sell_level, "ASRS Sell", xloc=xloc.bar_time, yloc=yloc.price, color=sell_line_color, textcolor=color.white, style=label.style_label_left)
+        if show_price_labels
+            sell_price_label := label.new(session_end_time, sell_level, str.tostring(sell_level, format.mintick), xloc=xloc.bar_time, yloc=yloc.price, color=color.new(sell_line_color, 0), textcolor=color.white, style=label.style_label_right)
 
- 
