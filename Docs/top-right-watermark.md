@@ -31,7 +31,7 @@ TradingView's default watermark is fixed in the center of the chart, often inter
 
 #### Installation
 
-1. Copy the code from `custom-watermark.pine`
+1. Copy the code from `top-right-watermark.pine`
 2. Open TradingView Pine Editor
 3. Paste the code and save
 4. Add to chart and customize settings
