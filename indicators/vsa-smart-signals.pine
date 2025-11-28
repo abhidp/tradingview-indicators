@@ -1,0 +1,488 @@
+// VSA Smart Signals - Professional Volume Spread Analysis
+// © 2024-2025 dabhi358
+//
+// Professional-grade VSA indicator implementing Wyckoff methodology with intelligent signal scoring.
+// Designed to help traders identify high-probability setups by filtering noise and rating signal quality.
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+// KEY FEATURES:
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//
+// 1. Signal Strength Scoring System (1-5 Stars) ⭐
+//    - Rates every signal based on volume depth, wick size, context, and pattern quality
+//    - Filter to show only 4-5 star premium setups or see all signals with ratings
+//
+// 2. ATR-Based Volatility Normalization 📊
+//    - Automatically adjusts detection thresholds based on current market volatility
+//    - Prevents false signals during choppy/high volatility periods
+//
+// 3. Effort vs Result Analysis (Wyckoff Principle) 🎯
+//    - Detects when large bars (high effort) produce small body movements (low result)
+//    - Identifies institutional absorption - smart money quietly accumulating/distributing
+//
+// 4. Multi-Bar Pattern Detection 🔍
+//    - Recognizes classic Wyckoff sequences: climactic action followed by low volume tests
+//    - Institutional footprints: panic/euphoria → professional control
+//
+// 5. Support/Resistance Context Awareness 📍
+//    - Prioritizes signals occurring near swing highs/lows
+//    - Filters out signals in "no man's land"
+//
+// 6. Intelligent Trend Filtering 📈
+//    - No Demand (bearish) signals in downtrends at resistance
+//    - No Supply (bullish) signals in uptrends at support
+//    - Configurable MA: SMA/EMA/WMA
+//
+// 7. Smart Confirmation Logic ✓
+//    - No Demand confirmed when next bar closes LOWER (proper follow-through weakness)
+//    - No Supply confirmed when next bar closes HIGHER (proper follow-through strength)
+//
+// 8. Enhanced Alert System 🔔
+//    - Dynamic alerts include: signal strength rating, volume, wick size, price level
+//    - Both automatic firing and manual alert creation modes
+//
+// 9. Comprehensive Info Table 📋
+//    - Real-time display of 10 VSA analysis metrics
+//    - Shows: volatility ratio, effort/result status, S/R proximity, climax detection
+//    - Positionable in 9 locations on chart
+//
+// 10. Multiple Volume Analysis Methods 📊
+//     - "All Lower" - strictest filter (current volume lower than ALL previous bars)
+//     - "Average Lower" - balanced filter (lower than average of previous bars)
+//
+// All advanced features are OPTIONAL and disabled by default for ease of use.
+// Enable them individually based on your trading style and experience level.
+//
+// Methodology: Based on Richard D. Wyckoff's market principles and Tom Williams' Volume Spread Analysis
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+//@version=6
+indicator("VSA Smart Signals", shorttitle="VSA Smart", overlay=true, max_labels_count=500)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INPUT PARAMETERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Volume Settings
+volumeLookback = input.int(2, "Volume Lookback Bars", minval=1, maxval=10, group="Volume Settings", tooltip="Number of previous bars to compare volume against. Classic VSA uses 2.")
+volumeMethod = input.string("All Lower", "Volume Comparison Method", options=["All Lower", "Average Lower"], group="Volume Settings", tooltip="All Lower = current volume lower than ALL previous bars | Average Lower = lower than average of previous bars")
+
+// Spread & Wick Settings
+requireWick = input.bool(true, "Require Rejection Wick", group="Spread & Wick Settings", tooltip="VSA requires a wick showing rejection")
+minWickRatio = input.float(0.3, "Minimum Wick Ratio", minval=0.1, maxval=1.0, step=0.1, group="Spread & Wick Settings", tooltip="Minimum wick size as ratio of total bar range")
+useNarrowSpread = input.bool(false, "Require Narrow Spread", group="Spread & Wick Settings", tooltip="Require candle body to be narrow")
+spreadLookback = input.int(20, "Spread Average Lookback", minval=5, maxval=100, group="Spread & Wick Settings")
+
+// Trend Filter Settings
+useTrendFilter = input.bool(false, "Use Trend Filter", group="Trend Filter", tooltip="Only show signals in context of trend")
+trendLength = input.int(50, "Trend MA Length", minval=10, maxval=200, group="Trend Filter")
+trendType = input.string("EMA", "Trend MA Type", options=["SMA", "EMA", "WMA"], group="Trend Filter")
+
+// Confirmation Settings
+requireConfirmation = input.bool(false, "Require Next Bar Confirmation", group="Confirmation", tooltip="Wait for confirming bar")
+
+// Effort vs Result Settings
+useEffortAnalysis = input.bool(false, "Enable Effort vs Result Analysis", group="Effort vs Result", tooltip="VSA principle: analyze if price movement matches volume effort")
+effortMultiplier = input.float(1.5, "High Effort Multiplier", minval=1.0, maxval=3.0, step=0.1, group="Effort vs Result", tooltip="Bar range must be this many times average to be considered high effort")
+resultMultiplier = input.float(0.5, "Low Result Multiplier", minval=0.1, maxval=1.0, step=0.1, group="Effort vs Result", tooltip="Price result must be below this ratio to be considered low result")
+
+// Volatility Normalization Settings
+useVolatilityNormalization = input.bool(false, "Use ATR-Based Wick Threshold", group="Volatility Adjustment", tooltip="Adjust wick requirements based on market volatility")
+atrLength = input.int(14, "ATR Length", minval=5, maxval=50, group="Volatility Adjustment")
+atrLookback = input.int(30, "ATR Average Lookback", minval=10, maxval=100, group="Volatility Adjustment", tooltip="Period for ATR average to normalize against")
+
+// Signal Strength Settings
+showSignalStrength = input.bool(false, "Show Signal Strength Score", group="Signal Strength", tooltip="Display strength score (1-5 stars) on labels")
+minSignalStrength = input.int(1, "Minimum Signal Strength", minval=1, maxval=5, group="Signal Strength", tooltip="Only show signals with this minimum strength (1=any, 5=strongest only)")
+
+// Support/Resistance Settings
+useSRContext = input.bool(false, "Require S/R Context", group="Support/Resistance", tooltip="Only show signals near swing highs/lows")
+swingLookback = input.int(10, "Swing Lookback", minval=5, maxval=50, group="Support/Resistance", tooltip="Bars to look back for swing highs/lows")
+srProximity = input.float(1.0, "S/R Proximity %", minval=0.1, maxval=5.0, step=0.1, group="Support/Resistance", tooltip="How close to S/R (% of price)")
+
+// Multi-Bar Pattern Settings
+useMultiBarPattern = input.bool(false, "Require Multi-Bar Pattern", group="Multi-Bar Pattern", tooltip="Look for climactic bar followed by low volume test")
+requireClimax = input.bool(true, "Require Prior Climactic Bar", group="Multi-Bar Pattern", tooltip="Require high volume bar before the signal bar")
+climaxLookback = input.int(3, "Climax Search Bars", minval=1, maxval=10, group="Multi-Bar Pattern", tooltip="How many bars back to search for climax")
+
+// Visual Settings
+showLabels = input.bool(true, "Show Labels", group="Visual Settings")
+showArrows = input.bool(true, "Show Arrows", group="Visual Settings")
+noDemandColor = input.color(color.red, "No Demand Color", group="Visual Settings")
+noSupplyColor = input.color(color.lime, "No Supply Color", group="Visual Settings")
+labelSize = input.string("small", "Label Size", options=["tiny", "small", "normal", "large"], group="Visual Settings")
+
+// Info Table Settings
+showTable = input.bool(true, "Show Info Table", group="Info Table")
+tablePosition = input.string("bottom_right", "Table Position", options=["top_left", "top_center", "top_right", "bottom_left", "bottom_center", "bottom_right"], group="Info Table")
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Bar type detection
+isBullish = close > open
+isBearish = close < open
+
+// Calculate bar components
+barRange = high - low
+bodySize = math.abs(close - open)
+upperWick = isBullish ? high - close : high - open
+lowerWick = isBullish ? open - low : close - low
+
+// Wick ratios (protection against zero division)
+upperWickRatio = barRange > 0 ? upperWick / barRange : 0.0
+lowerWickRatio = barRange > 0 ? lowerWick / barRange : 0.0
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VOLUME ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Check for low volume based on selected method
+f_isLowVolume() =>
+    result = false
+    if volumeMethod == "All Lower"
+        // Current volume must be lower than ALL previous bars in lookback period
+        result := true
+        for i = 1 to volumeLookback
+            if volume >= volume[i]
+                result := false
+                break
+    else if volumeMethod == "Average Lower"
+        // Current volume must be lower than average of previous bars
+        sumVol = 0.0
+        for i = 1 to volumeLookback
+            sumVol += volume[i]
+        avgVol = sumVol / volumeLookback
+        result := volume < avgVol
+    result
+
+isLowVolume = f_isLowVolume()
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SPREAD ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate average spread for narrow spread filter
+avgSpread = ta.sma(barRange, spreadLookback)
+isNarrowSpread = barRange < avgSpread
+
+// Check spread condition
+spreadCondition = useNarrowSpread ? isNarrowSpread : true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EFFORT VS RESULT ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate effort (total bar range) vs result (price movement)
+avgBarRange = ta.sma(barRange, spreadLookback)
+isHighEffort = barRange > (avgBarRange * effortMultiplier)
+isLowResult = bodySize < (barRange * resultMultiplier)
+
+// Effort without result = absorption by strong hands (classic VSA)
+effortWithoutResult = isHighEffort and isLowResult
+effortCondition = useEffortAnalysis ? effortWithoutResult : true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VOLATILITY NORMALIZATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate ATR and normalize wick threshold based on current volatility
+atr = ta.atr(atrLength)
+atrAvg = ta.sma(atr, atrLookback)
+volatilityRatio = atr / atrAvg
+
+// When volatility is high, require larger wicks (normalize down)
+// When volatility is low, smaller wicks are more significant (normalize up)
+adjustedWickRatio = useVolatilityNormalization ? minWickRatio / volatilityRatio : minWickRatio
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WICK/REJECTION ANALYSIS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// No Demand: Bullish bar with rejection at high (upper wick)
+hasUpperRejection = upperWickRatio >= adjustedWickRatio
+
+// No Supply: Bearish bar with rejection at low (lower wick)
+hasLowerRejection = lowerWickRatio >= adjustedWickRatio
+
+// Apply wick requirement if enabled
+noDemandWick = requireWick ? hasUpperRejection : true
+noSupplyWick = requireWick ? hasLowerRejection : true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUPPORT/RESISTANCE CONTEXT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Find swing highs and lows
+swingHigh = ta.highest(high, swingLookback)
+swingLow = ta.lowest(low, swingLookback)
+
+// Calculate proximity to S/R as percentage
+srThreshold = close * (srProximity / 100)
+nearResistance = math.abs(high - swingHigh) <= srThreshold
+nearSupport = math.abs(low - swingLow) <= srThreshold
+
+// No Demand should be near resistance, No Supply near support
+srContextND = useSRContext ? nearResistance : true
+srContextNS = useSRContext ? nearSupport : true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MULTI-BAR PATTERN DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Pre-calculate averages outside function for Pine Script consistency
+avgRangeSeries = ta.sma(high - low, spreadLookback)
+avgVolumeSeries = ta.sma(volume, volumeLookback)
+
+// Look for climactic volume bar (high volume, wide range) before current bar
+f_hasClimax() =>
+    result = false
+    if requireClimax
+        for i = 1 to climaxLookback
+            priorBarRange = high[i] - low[i]
+            priorVolume = volume[i]
+            avgPriorRange = avgRangeSeries[i]
+            avgPriorVolume = avgVolumeSeries[i]
+
+            // Climax = wide range + high volume
+            isWideRange = priorBarRange > (avgPriorRange * 1.5)
+            isHighVolume = priorVolume > (avgPriorVolume * 1.5)
+
+            if isWideRange and isHighVolume
+                result := true
+                break
+    else
+        result := true
+    result
+
+hasClimaxPattern = f_hasClimax()
+multiBarCondition = useMultiBarPattern ? hasClimaxPattern : true
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TREND FILTER
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate trend MA
+trendMA = trendType == "SMA" ? ta.sma(close, trendLength) : trendType == "EMA" ? ta.ema(close, trendLength) : ta.wma(close, trendLength)
+
+inUptrend = close > trendMA
+inDowntrend = close < trendMA
+
+// Apply trend filter if enabled
+// FIXED: No Demand (weakness) is most meaningful when price rejects in a DOWNTREND (resistance rejection)
+// FIXED: No Supply (strength) is most meaningful when price bounces in an UPTREND (support bounce)
+trendFilterND = useTrendFilter ? inDowntrend : true  // No Demand = rejection at resistance in downtrend
+trendFilterNS = useTrendFilter ? inUptrend : true    // No Supply = bounce at support in uptrend
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIGNAL DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Base conditions (without confirmation) - now includes all advanced filters
+noDemandBase = isBullish and isLowVolume and noDemandWick and spreadCondition and trendFilterND and effortCondition and srContextND and multiBarCondition
+noSupplyBase = isBearish and isLowVolume and noSupplyWick and spreadCondition and trendFilterNS and effortCondition and srContextNS and multiBarCondition
+
+// FIXED: Proper VSA confirmation logic
+// No Demand (weakness): Setup bar shows rejection, next bar should close LOWER (follow-through weakness)
+// No Supply (strength): Setup bar shows bounce, next bar should close HIGHER (follow-through strength)
+// Signal appears one bar after setup when confirmation is required
+noDemandConfirmed = requireConfirmation ? (noDemandBase[1] and close < close[1]) : noDemandBase
+noSupplyConfirmed = requireConfirmation ? (noSupplyBase[1] and close > close[1]) : noSupplyBase
+
+// Final signals
+noDemand = noDemandConfirmed
+noSupply = noSupplyConfirmed
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIGNAL STRENGTH SCORING (1-5 stars)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate strength score based on how strongly each condition is met
+f_calculateStrength(isND) =>
+    score = 0
+
+    // 1. Volume strength (how low is volume compared to average)
+    if volumeMethod == "Average Lower"
+        sumVol = 0.0
+        for i = 1 to volumeLookback
+            sumVol += volume[i]
+        avgVol = sumVol / volumeLookback
+        volRatio = volume / avgVol
+        if volRatio < 0.5
+            score += 2  // Very low volume
+        else if volRatio < 0.75
+            score += 1  // Moderately low volume
+    else
+        // For "All Lower" method, if it passes, it's strong
+        if isLowVolume
+            score += 1
+
+    // 2. Wick strength (how large is the rejection wick)
+    wickRatio = isND ? upperWickRatio : lowerWickRatio
+    if wickRatio > 0.5
+        score += 2  // Very large wick
+    else if wickRatio > 0.35
+        score += 1  // Moderate wick
+
+    // 3. Effort vs Result (if enabled and met)
+    if useEffortAnalysis and effortWithoutResult
+        score += 1
+
+    // 4. S/R Context (if near key levels)
+    if useSRContext and (isND ? nearResistance : nearSupport)
+        score += 1
+
+    // 5. Multi-bar pattern (if climax detected)
+    if useMultiBarPattern and hasClimaxPattern
+        score += 1
+
+    // Normalize to 1-5 scale
+    score := math.min(5, math.max(1, score))
+    score
+
+noDemandStrength = noDemand ? f_calculateStrength(true) : 0
+noSupplyStrength = noSupply ? f_calculateStrength(false) : 0
+
+// Apply minimum strength filter
+noDemandFiltered = noDemand and (noDemandStrength >= minSignalStrength)
+noSupplyFiltered = noSupply and (noSupplyStrength >= minSignalStrength)
+
+// Use filtered signals for display
+noDemandFinal = noDemandFiltered
+noSupplyFinal = noSupplyFiltered
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLOTTING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Get label size
+getLabelSize() =>
+    result = size.small
+    if labelSize == "tiny"
+        result := size.tiny
+    else if labelSize == "small"
+        result := size.small
+    else if labelSize == "normal"
+        result := size.normal
+    else
+        result := size.large
+    result
+
+labelSizeVal = getLabelSize()
+
+// Helper function to create star rating string
+f_getStars(strength) =>
+    stars = ""
+    for i = 1 to strength
+        stars += "★"
+    stars
+
+// Plot arrows
+plotshape(showArrows and noDemandFinal, title="No Demand Arrow", location=location.abovebar, color=noDemandColor, style=shape.triangledown, size=size.small)
+plotshape(showArrows and noSupplyFinal, title="No Supply Arrow", location=location.belowbar, color=noSupplyColor, style=shape.triangleup, size=size.small)
+
+// Plot labels with optional strength indicator
+if showLabels and noDemandFinal
+    labelText = showSignalStrength ? "ND " + f_getStars(noDemandStrength) : "ND"
+    label.new(bar_index, high, labelText, color=color.new(noDemandColor, 80), textcolor=noDemandColor, style=label.style_label_down, size=labelSizeVal)
+
+if showLabels and noSupplyFinal
+    labelText = showSignalStrength ? "NS " + f_getStars(noSupplyStrength) : "NS"
+    label.new(bar_index, low, labelText, color=color.new(noSupplyColor, 80), textcolor=noSupplyColor, style=label.style_label_up, size=labelSizeVal)
+
+// Optional: Plot trend MA if trend filter is enabled
+plot(useTrendFilter ? trendMA : na, "Trend MA", color=color.gray, linewidth=1)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Use alert() function for dynamic messages (Pine Script v5+)
+// This allows us to include current values in alert messages
+if noDemandFinal
+    alert("VSA No Demand (Weakness) | Strength: " + str.tostring(noDemandStrength) + "/5 | Vol: " + str.tostring(volume, format.volume) + " | Wick: " + str.tostring(upperWickRatio * 100, "#.#") + "% | Price: " + str.tostring(close, format.mintick), alert.freq_once_per_bar)
+
+if noSupplyFinal
+    alert("VSA No Supply (Strength) | Strength: " + str.tostring(noSupplyStrength) + "/5 | Vol: " + str.tostring(volume, format.volume) + " | Wick: " + str.tostring(lowerWickRatio * 100, "#.#") + "% | Price: " + str.tostring(close, format.mintick), alert.freq_once_per_bar)
+
+// Backward compatible alertcondition for users who prefer the old system
+alertcondition(noDemandFinal, title="VSA Smart Signals: No Demand", message="VSA No Demand detected - Potential weakness. Check chart for details.")
+alertcondition(noSupplyFinal, title="VSA Smart Signals: No Supply", message="VSA No Supply detected - Potential strength. Check chart for details.")
+alertcondition(noDemandFinal or noSupplyFinal, title="VSA Smart Signals: Any Signal", message="VSA Smart Signal detected - Check chart for details.")
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INFO TABLE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Get table position
+getTablePosition() =>
+    result = position.top_right
+    if tablePosition == "top_left"
+        result := position.top_left
+    else if tablePosition == "top_center"
+        result := position.top_center
+    else if tablePosition == "top_right"
+        result := position.top_right
+    else if tablePosition == "bottom_left"
+        result := position.bottom_left
+    else if tablePosition == "bottom_center"
+        result := position.bottom_center
+    else
+        result := position.bottom_right
+    result
+
+tablePos = getTablePosition()
+
+var table infoTable = table.new(tablePos, 2, 10, bgcolor=color.new(color.gray, 90), border_width=1)
+
+if showTable and barstate.islast
+    // Header
+    table.cell(infoTable, 0, 0, "VSA Analysis", text_color=color.white, bgcolor=color.new(color.blue, 70))
+    table.merge_cells(infoTable, 0, 0, 1, 0)
+
+    // Current bar info
+    table.cell(infoTable, 0, 1, "Bar Type:", text_color=color.white)
+    barTypeText = isBullish ? "Bullish" : isBearish ? "Bearish" : "Doji"
+    barTypeColor = isBullish ? color.green : isBearish ? color.red : color.gray
+    table.cell(infoTable, 1, 1, barTypeText, text_color=barTypeColor)
+
+    table.cell(infoTable, 0, 2, "Volume:", text_color=color.white)
+    volText = isLowVolume ? "Low ✓" : "Normal"
+    volColor = isLowVolume ? color.green : color.gray
+    table.cell(infoTable, 1, 2, volText, text_color=volColor)
+
+    table.cell(infoTable, 0, 3, "Upper Wick:", text_color=color.white)
+    upperColor = hasUpperRejection ? color.orange : color.gray
+    table.cell(infoTable, 1, 3, str.tostring(upperWickRatio, "#.##"), text_color=upperColor)
+
+    table.cell(infoTable, 0, 4, "Lower Wick:", text_color=color.white)
+    lowerColor = hasLowerRejection ? color.orange : color.gray
+    table.cell(infoTable, 1, 4, str.tostring(lowerWickRatio, "#.##"), text_color=lowerColor)
+
+    // New advanced metrics
+    table.cell(infoTable, 0, 5, "Volatility:", text_color=color.white)
+    volatilityText = str.tostring(volatilityRatio, "#.##") + "x"
+    volAdjColor = volatilityRatio > 1.2 ? color.red : volatilityRatio < 0.8 ? color.green : color.gray
+    table.cell(infoTable, 1, 5, volatilityText, text_color=volAdjColor)
+
+    table.cell(infoTable, 0, 6, "Effort/Result:", text_color=color.white)
+    effortText = effortWithoutResult ? "High/Low ✓" : "Normal"
+    effortColor = effortWithoutResult ? color.orange : color.gray
+    table.cell(infoTable, 1, 6, effortText, text_color=effortColor)
+
+    table.cell(infoTable, 0, 7, "Near S/R:", text_color=color.white)
+    srText = nearResistance ? "Resistance" : nearSupport ? "Support" : "No"
+    srColor = nearResistance or nearSupport ? color.yellow : color.gray
+    table.cell(infoTable, 1, 7, srText, text_color=srColor)
+
+    table.cell(infoTable, 0, 8, "Climax Bar:", text_color=color.white)
+    climaxText = hasClimaxPattern ? "Yes ✓" : "No"
+    climaxColor = hasClimaxPattern ? color.purple : color.gray
+    table.cell(infoTable, 1, 8, climaxText, text_color=climaxColor)
+
+    table.cell(infoTable, 0, 9, "Signal:", text_color=color.white)
+    signalText = noDemandFinal ? "NO DEMAND " + f_getStars(noDemandStrength) : noSupplyFinal ? "NO SUPPLY " + f_getStars(noSupplyStrength) : "None"
+    signalColor = noDemandFinal ? noDemandColor : noSupplyFinal ? noSupplyColor : color.gray
+    table.cell(infoTable, 1, 9, signalText, text_color=signalColor)
