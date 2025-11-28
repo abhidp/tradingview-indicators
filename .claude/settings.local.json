@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git mv:*)",
+      "Bash(move \"C:\\Users\\abhid\\Documents\\Projects\\tradingview-indicators\\indicators\\vsa-no-supply-no-demand.pine\" \"C:\\Users\\abhid\\Documents\\Projects\\tradingview-indicators\\indicators\\vsa-smart-signals.pine\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
