@@ -107,8 +107,8 @@ requireClimax = input.bool(true, "Require Prior Climactic Bar", group="Multi-Bar
 climaxLookback = input.int(3, "Climax Search Bars", minval=1, maxval=10, group="Multi-Bar Pattern", tooltip="How many bars back to search for climax")
 
 // Visual Settings
-showLabels = input.bool(true, "Show Labels", group="Visual Settings", tooltip="Display minimal ND/NS labels with optional star ratings")
-showArrows = input.bool(false, "Show Arrows", group="Visual Settings", tooltip="Show triangle arrows (disabled by default - labels are cleaner)")
+showLabels = input.bool(true, "Show Labels", group="Visual Settings")
+showArrows = input.bool(true, "Show Arrows", group="Visual Settings")
 noDemandColor = input.color(color.red, "No Demand Color", group="Visual Settings")
 noSupplyColor = input.color(color.lime, "No Supply Color", group="Visual Settings")
 labelSize = input.string("small", "Label Size", options=["tiny", "small", "normal", "large"], group="Visual Settings")
@@ -379,11 +379,11 @@ f_getStars(strength) =>
         stars += "★"
     stars
 
-// Plot arrows (optional - disabled by default, can be enabled in settings)
+// Plot arrows
 plotshape(showArrows and noDemandFinal, title="No Demand Arrow", location=location.abovebar, color=noDemandColor, style=shape.triangledown, size=size.small)
 plotshape(showArrows and noSupplyFinal, title="No Supply Arrow", location=location.belowbar, color=noSupplyColor, style=shape.triangleup, size=size.small)
 
-// Plot minimal labels with optional strength indicator
+// Plot labels with optional strength indicator
 if showLabels and noDemandFinal
     labelText = showSignalStrength ? "ND " + f_getStars(noDemandStrength) : "ND"
     label.new(bar_index, high, labelText, color=color.new(noDemandColor, 80), textcolor=noDemandColor, style=label.style_label_down, size=labelSizeVal)
