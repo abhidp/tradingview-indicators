@@ -3,12 +3,13 @@ indicator(title="Top Right Watermark", shorttitle = "TR Watermark", overlay = tr
 
 // Inputs
 //{
-wm_size     = input.string("huge", 
+wm_size     = input.string("huge",
                        title = "watermark size",
                        options = ["tiny", "small", "normal", "large", "huge"],
-                       inline = "WM")tf_style    = input.string("TradingView", 
+                       inline = "WM")
+tf_style    = input.string("TradingView",
                        title = "Timeframe Style",
-                       options = ["TradingView", "MetaTrader"]),
+                       options = ["TradingView", "MetaTrader"])
 wm_col      = input.color (color.new(color.gray, 70), 
                        title = "",                                
                        inline = "WM")
@@ -20,10 +21,11 @@ wm_posH     = input.string("right",
                        title = "",
                        options = ["left", "center", "right"],                                
                        inline = "WM")
-line1       = input.string("Ticker", options = ["Timeframe", "Ticker", "Exchange", "Custom Text", "Empty"])
-line2       = input.string("Timeframe",    options = ["Timeframe", "Ticker", "Exchange", "Custom Text", "Empty"])
-line3       = input.string("Empty",      options = ["Timeframe", "Ticker", "Exchange", "Custom Text", "Empty"])
-custom_txt  = input.string("custom text", 
+line1       = input.string("Ticker", options = ["Timeframe", "Ticker", "Exchange", "Candle Timer", "Custom Text", "Empty"])
+line2       = input.string("Timeframe",    options = ["Timeframe", "Ticker", "Exchange", "Candle Timer", "Custom Text", "Empty"])
+line3       = input.string("Empty",      options = ["Timeframe", "Ticker", "Exchange", "Candle Timer", "Custom Text", "Empty"])
+line4       = input.string("Candle Timer",      options = ["Timeframe", "Ticker", "Exchange", "Candle Timer", "Custom Text", "Empty"])
+custom_txt  = input.string("custom text",
                        title = "custom text")
 //}
 
@@ -31,12 +33,36 @@ custom_txt  = input.string("custom text",
 //{
 var watermark = table.new(wm_posV + "_" + wm_posH, 1, 1)
 
+// Function to format candle timer in digital clock format
+f_formatTimer(milliseconds) =>
+    totalSeconds = math.floor(milliseconds / 1000)
+    days = math.floor(totalSeconds / 86400)
+    hours = math.floor((totalSeconds % 86400) / 3600)
+    minutes = math.floor((totalSeconds % 3600) / 60)
+    seconds = totalSeconds % 60
+
+    // Pad with leading zero if needed
+    minutesStr = minutes < 10 ? "0" + str.tostring(minutes) : str.tostring(minutes)
+    secondsStr = seconds < 10 ? "0" + str.tostring(seconds) : str.tostring(seconds)
+    hoursStr = hours < 10 ? "0" + str.tostring(hours) : str.tostring(hours)
+
+    // Format based on timeframe duration
+    result = ""
+    if days > 0
+        result := str.tostring(days) + "d " + hoursStr + ":" + minutesStr + ":" + secondsStr
+    else if hours > 0
+        result := str.tostring(hours) + ":" + minutesStr + ":" + secondsStr
+    else
+        result := minutesStr + ":" + secondsStr
+    result
+
 // Get current timeframe period
 period = timeframe.period
 string watermark_txt = ""
 string TF_txt        = ""
 string Ticker_txt    = ""
 string Exchange_txt  = ""
+string Timer_txt     = ""
 
 TF_txt := switch period
     "1S"      => tf_style == "TradingView" ? "1s" : "S1"
@@ -79,10 +105,15 @@ Ticker_txt := syminfo.ticker
 
 Exchange_txt := syminfo.prefix
 
+// Calculate time remaining until bar close
+timeRemaining = time_close - timenow
+Timer_txt := f_formatTimer(timeRemaining)
+
 line1_txt = switch line1
     "Timeframe"     => TF_txt
     "Ticker"        => Ticker_txt
     "Exchange"      => Exchange_txt
+    "Candle Timer"  => Timer_txt
     "Custom Text"   => custom_txt
     "Empty"         => ""
 
@@ -90,6 +121,7 @@ line2_txt = switch line2
     "Timeframe"     => TF_txt
     "Ticker"        => Ticker_txt
     "Exchange"      => Exchange_txt
+    "Candle Timer"  => Timer_txt
     "Custom Text"   => custom_txt
     "Empty"         => ""
 
@@ -97,17 +129,26 @@ line3_txt = switch line3
     "Timeframe"     => TF_txt
     "Ticker"        => Ticker_txt
     "Exchange"      => Exchange_txt
+    "Candle Timer"  => Timer_txt
     "Custom Text"   => custom_txt
     "Empty"         => ""
 
-watermark_txt := 
+line4_txt = switch line4
+    "Timeframe"     => TF_txt
+    "Ticker"        => Ticker_txt
+    "Exchange"      => Exchange_txt
+    "Candle Timer"  => Timer_txt
+    "Custom Text"   => custom_txt
+    "Empty"         => ""
+
+watermark_txt :=
                                  line1_txt +
  (line1_txt == "" ? "" : "\n") + line2_txt +
- (line2_txt == "" ? "" : "\n") + line3_txt
+ (line2_txt == "" ? "" : "\n") + line3_txt +
+ (line3_txt == "" ? "" : "\n") + line4_txt
 
-//
-if barstate.isfirst
-    table.cell_set_text      (watermark, 0, 0, text       = watermark_txt)
-    table.cell_set_text_color(watermark, 0, 0, text_color =  wm_col)
-    table.cell_set_text_size (watermark, 0, 0, text_size  = wm_size)
+// Update watermark on every tick to make timer live
+table.cell_set_text      (watermark, 0, 0, text       = watermark_txt)
+table.cell_set_text_color(watermark, 0, 0, text_color =  wm_col)
+table.cell_set_text_size (watermark, 0, 0, text_size  = wm_size)
 //}
