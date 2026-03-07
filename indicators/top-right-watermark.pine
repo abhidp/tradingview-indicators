@@ -107,7 +107,7 @@ Exchange_txt := syminfo.prefix
 
 // Calculate time remaining until bar close
 timeRemaining = time_close - timenow
-Timer_txt := f_formatTimer(timeRemaining)
+Timer_txt := timeRemaining > 0 ? f_formatTimer(timeRemaining) : "Closed"
 
 line1_txt = switch line1
     "Timeframe"     => TF_txt
